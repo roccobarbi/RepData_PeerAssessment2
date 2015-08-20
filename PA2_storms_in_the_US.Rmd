@@ -54,7 +54,7 @@ Since there are too many event types, I began to clean them up by removing those
 
 ```{r, cache = TRUE}
 tmp_levels <- length(levels(subset$EVTYPE))
-evtypes_dmg <- aggregate(x = (subset[, "PROPDMG"] + subset[, "CROPDMG"]), by = list(subset[, "EVTYPE"]), FUN = "sum")
+evtypes_dmg <- aggregate(x = (subset[, "PROPDMG"] + subset[, "CROPDMG"] + subset[, "INJURIES"] + subset[, "FATALITIES"]), by = list(subset[, "EVTYPE"]), FUN = "sum")
 irrelevant_evtypes <- filter(evtypes_dmg, x == 0) %>% select(Group.1)
 subset <- filter(subset, !(EVTYPE %in% unlist(irrelevant_evtypes)))
 subset <- droplevels(subset)
@@ -66,14 +66,80 @@ do_collect_garbage()
 ```
 
 This way I was able to remove `r erased_levels` levels with no cumulated damage to either health or property.
-I then proceeded to tidy up the EVTYPE values. At first I:
 
-- renamed the unknown values in a tidier way (from "?" to "UNKNOWN");
-- aggregated with regular expressions some easier ones.
+I then proceeded to tidy up the EVTYPE values. This required some judgement calls, as I had to adapt the "recorded" event types to the categories quoted in NOAA documents. Those categories are the following:
 
-```{r}
-subset$EVTYPE <- plyr::revalue(subset$EVTYPE, c("?"="UNKNOWN"))
+```{r, cache = TRUE}
+correct_event_types <- c("Astronomical Low Tide", "Avalanche", "Blizzard", "Coastal Flood", "Cold/Wind Chill", "Debris Flow", "Dense Fog", "Dense Smoke", "Drought", "Dust Devil", "Dust Storm", "Excessive Heat", "Extreme Cold/Wind Chill", "Flash Flood", "Flood", "Freezing Fog", "Frost/Freeze", "Funnel Cloud", "Hail", "Heat", "Heavy Rain", "Heavy Snow", "High Surf", "High Wind", "Hurricane/Typhoon", "Ice Storm", "Lakeshore Flood", "Lake-Effect Snow", "Lightning", "Marine Hail", "Marine High Wind", "Marine Strong Wind", "Marine Thunderstorm Wind", "Rip Current", "Seiche", "Sleet", "Storm Tide", "Strong Wind", "Thunderstorm Wind", "Tornado", "Tropical Depression", "Tropical Storm", "Tsunami", "Volcanic Ash", "Waterspout", "Wildfire", "Winter Storm", "Winter Weather")
+correct_event_types_count <- length(correct_event_types)
+recorded_event_types_count <- length(levels(subset$EVTYPE))
+
 ```
+
+Note that there are `r correct_event_types_count` admitted categories, but `r recorded_event_types_count` variations were actually recorded.
+
+I determined the sequence of the instructions to tidy the data based on my judgement, giving priority to what looked like the most specific, then to the most important/severe events in those cases in which mixed events were reported.
+
+Ultimately, not being an expert on this subject, I could reduce the event types only partially. In some cases, I had to invent my own categories (e.g. MUDSLIDES) in order to at least reduce the number of duplicates.
+
+In some cases I also had to introduce a false value (e.g. COASTAL FLOOKD) so that I could use a more generic rule (e.g. to set the event type"FLOOD"), then I corrected the false value.
+
+My first series of corrections dealt with:
+- the ? value;
+- waterspouts;
+- tornadoes;
+- thunderstorms;
+- hail;
+- avalanches;
+- blizzards;
+- dust storms;
+- ice storms;
+- winter storms;
+- tropical storms;
+- flash floods;
+- coastal floods;
+- lakeshore floods;
+- mudslides;
+- floods.
+
+
+```{r, cache = TRUE}
+old_event_types_count <- length(levels(subset$EVTYPE))
+subset$EVTYPE <- plyr::revalue(subset$EVTYPE, c("?"="UNKNOWN"))
+levels(subset$EVTYPE)<- gsub(".*waterspout.*", "WATERSPOUT", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*tornado.*", "TORNADO", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("^thunderstorm hail$", "HAIL", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("^thunderstorm.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("^lightning.*thunderstorm.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("^severe.*thunderstorm.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("^ tstm.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*hail.*", "HAIL", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("MARINE TSTM WIND", "MARINE THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("^thun.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*avalanche.*", "AVALANCHE", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*blizzard.*", "BLIZZARD", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*dust storm.*", "DUST STORM", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*ice storm$", "ICE STORM", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*winter storm.*", "WINTER STORM", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*tropical storm.*", "TROPICAL STORM", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*flash.*flood.*", "FLASH FLOOkD", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*flood.*flash.*", "FLASH FLOOkD", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*coast.*flood.*", "COASTAL FLOOkD", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*cstl.*flood.*", "COASTAL FLOOKD", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*lake.*flood.*", "LAKESHORE FLOOkD", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*mud.*", "MUDSLIDES", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*flood.*", "FLOOD", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("FLASH FLOOKD", "FLASH FLOOD", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("COASTAL FLOOKD", "COASTAL FLOOD", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("LAKESHORE FLOOKD", "LAKESHORE FLOOD", levels(subset$EVTYPE), ignore.case = T)
+subset <- droplevels(subset)
+new_event_types_count <- length(levels(subset$EVTYPE))
+diff_event_types_count <- old_event_types_count - new_event_types_count
+rm(old_event_types_count)
+do_collect_garbage()
+```
+
+This operation allowed me to clean up `r diff_event_types_count` values. But I still have `r new_event_types_count - correct_event_types_count` more values than the expected `r correct_event_types_count`.
 
 ## Results
 

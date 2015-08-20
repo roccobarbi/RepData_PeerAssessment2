@@ -61,8 +61,8 @@ storm_data <- read.csv("Data/storm_data.csv.bz2", header = T, stringsAsFactors =
 do_collect_garbage()
 
 # To make the analyses lighter, I will remove some information that is not relevant to the assignment.
-writelines("\nSubsetting the data to free up memory\n")
-subset <- select(storm_data, STATE__, BGN_DATE, STATE, EVTYPE, F, MAG, FATALITIES, INJURIES, PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP)
+writeLines("\nSubsetting the data to free up memory\n")
+subset <- select(storm_data, BGN_DATE, EVTYPE, MAG, FATALITIES, INJURIES, PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP)
 rm(storm_data)
 do_collect_garbage()
 
@@ -72,14 +72,66 @@ do_collect_garbage()
 # - total damage (sum for event type).
 
 # I clean up the data set by removing irrelevant event types (with zero aggregated damage)
-evtypes_dmg <- aggregate(x = (subset[, "PROPDMG"] + subset[, "CROPDMG"]), by = list(subset[, "EVTYPE"]), FUN = "sum")
+writeLines("\nSubsetting even more to get rid of inconsequential events.\n")
+evtypes_dmg <- aggregate(x = (subset[, "PROPDMG"] + subset[, "CROPDMG"] + subset[, "INJURIES"] + subset[, "FATALITIES"]), by = list(subset[, "EVTYPE"]), FUN = "sum")
 irrelevant_evtypes <- filter(evtypes_dmg, x == 0) %>% select(Group.1)
 subset <- filter(subset, !(EVTYPE %in% unlist(irrelevant_evtypes)))
 subset <- droplevels(subset)
 do_collect_garbage()
+
+# I copied by hand a list of the correct event type values
+
+correct_event_types <- c("Astronomical Low Tide", "Avalanche", "Blizzard", "Coastal Flood", "Cold/Wind Chill", "Debris Flow", "Dense Fog", "Dense Smoke", "Drought", "Dust Devil", "Dust Storm", "Excessive Heat", "Extreme Cold/Wind Chill", "Flash Flood", "Flood", "Freezing Fog", "Frost/Freeze", "Funnel Cloud", "Hail", "Heat", "Heavy Rain", "Heavy Snow", "High Surf", "High Wind", "Hurricane/Typhoon", "Ice Storm", "Lakeshore Flood", "Lake-Effect Snow", "Lightning", "Marine Hail", "Marine High Wind", "Marine Strong Wind", "Marine Thunderstorm Wind", "Rip Current", "Seiche", "Sleet", "Storm Tide", "Strong Wind", "Thunderstorm Wind", "Tornado", "Tropical Depression", "Tropical Storm", "Tsunami", "Volcanic Ash", "Waterspout", "Wildfire", "Winter Storm", "Winter Weather")
 
 # I tidy up the name of the unknown values.
 subset$EVTYPE <- plyr::revalue(subset$EVTYPE, c("?"="UNKNOWN"))
 
 # How many EVTYPES are there with this pattern?
 length(grep(".*TSTM.*", levels(subset$EVTYPE)))
+grep("tornado", levels(subset$EVTYPE), value = T, ignore.case = T)
+
+# I actually clean up the levels (first set)
+levels(subset$EVTYPE)<- gsub(".*waterspout.*", "WATERSPOUT", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*tornado.*", "TORNADO", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("^thunderstorm hail$", "HAIL", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("^thunderstorm.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("^lightning.*thunderstorm.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("^severe.*thunderstorm.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("^ tstm.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*hail.*", "HAIL", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("MARINE TSTM WIND", "MARINE THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("^thun.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*avalanche.*", "AVALANCHE", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*blizzard.*", "BLIZZARD", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*dust storm.*", "DUST STORM", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*ice storm$", "ICE STORM", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*winter storm.*", "WINTER STORM", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*tropical storm.*", "TROPICAL STORM", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*flash.*flood.*", "FLASH FLOOkD", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*flood.*flash.*", "FLASH FLOOkD", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*coast.*flood.*", "COASTAL FLOOkD", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*cstl.*flood.*", "COASTAL FLOOKD", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*lake.*flood.*", "LAKESHORE FLOOkD", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*mud.*", "MUDSLIDES", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*flood.*", "FLOOD", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("FLASH FLOOKD", "FLASH FLOOD", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("COASTAL FLOOKD", "COASTAL FLOOD", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("LAKESHORE FLOOKD", "LAKESHORE FLOOD", levels(subset$EVTYPE), ignore.case = T)
+
+
+
+grep("hail", levels(subset$EVTYPE), value = T, ignore.case = T)
+
+# And I drop the unused ones.
+subset <- droplevels(subset)
+
+# Finally I clean up some memory
+do_collect_garbage()
+
+# I actually clean up the levels (second set)
+
+# And I drop the unused ones.
+subset <- droplevels(subset)
+
+# Finally I clean up some memory
+do_collect_garbage()

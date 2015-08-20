@@ -112,7 +112,7 @@ rm(storm_data)
 do_collect_garbage()</code></pre>
 <p>Since there are too many event types, I began to clean them up by removing those that produced no damage and are therefore irrelevant to my analysis. I then cleaned up my temporary variables and freed up some more memory.</p>
 <pre class="r"><code>tmp_levels &lt;- length(levels(subset$EVTYPE))
-evtypes_dmg &lt;- aggregate(x = (subset[, &quot;PROPDMG&quot;] + subset[, &quot;CROPDMG&quot;]), by = list(subset[, &quot;EVTYPE&quot;]), FUN = &quot;sum&quot;)
+evtypes_dmg &lt;- aggregate(x = (subset[, &quot;PROPDMG&quot;] + subset[, &quot;CROPDMG&quot;] + subset[, &quot;INJURIES&quot;] + subset[, &quot;FATALITIES&quot;]), by = list(subset[, &quot;EVTYPE&quot;]), FUN = &quot;sum&quot;)
 irrelevant_evtypes &lt;- filter(evtypes_dmg, x == 0) %&gt;% select(Group.1)
 subset &lt;- filter(subset, !(EVTYPE %in% unlist(irrelevant_evtypes)))
 subset &lt;- droplevels(subset)
@@ -121,12 +121,50 @@ rm(evtypes_dmg)
 rm(irrelevant_evtypes)
 rm(tmp_levels)
 do_collect_garbage()</code></pre>
-<p>This way I was able to remove 554 levels with no cumulated damage to either health or property. I then proceeded to tidy up the EVTYPE values. At first I:</p>
-<ul>
-<li>renamed the unknown values in a tidier way (from “?” to “UNKNOWN”);</li>
-<li>aggregated with regular expressions some easier ones.</li>
-</ul>
-<pre class="r"><code>subset$EVTYPE &lt;- plyr::revalue(subset$EVTYPE, c(&quot;?&quot;=&quot;UNKNOWN&quot;))</code></pre>
+<p>This way I was able to remove 497 levels with no cumulated damage to either health or property.</p>
+<p>I then proceeded to tidy up the EVTYPE values. This required some judgement calls, as I had to adapt the “recorded” event types to the categories quoted in NOAA documents. Those categories are the following:</p>
+<pre class="r"><code>correct_event_types &lt;- c(&quot;Astronomical Low Tide&quot;, &quot;Avalanche&quot;, &quot;Blizzard&quot;, &quot;Coastal Flood&quot;, &quot;Cold/Wind Chill&quot;, &quot;Debris Flow&quot;, &quot;Dense Fog&quot;, &quot;Dense Smoke&quot;, &quot;Drought&quot;, &quot;Dust Devil&quot;, &quot;Dust Storm&quot;, &quot;Excessive Heat&quot;, &quot;Extreme Cold/Wind Chill&quot;, &quot;Flash Flood&quot;, &quot;Flood&quot;, &quot;Freezing Fog&quot;, &quot;Frost/Freeze&quot;, &quot;Funnel Cloud&quot;, &quot;Hail&quot;, &quot;Heat&quot;, &quot;Heavy Rain&quot;, &quot;Heavy Snow&quot;, &quot;High Surf&quot;, &quot;High Wind&quot;, &quot;Hurricane/Typhoon&quot;, &quot;Ice Storm&quot;, &quot;Lakeshore Flood&quot;, &quot;Lake-Effect Snow&quot;, &quot;Lightning&quot;, &quot;Marine Hail&quot;, &quot;Marine High Wind&quot;, &quot;Marine Strong Wind&quot;, &quot;Marine Thunderstorm Wind&quot;, &quot;Rip Current&quot;, &quot;Seiche&quot;, &quot;Sleet&quot;, &quot;Storm Tide&quot;, &quot;Strong Wind&quot;, &quot;Thunderstorm Wind&quot;, &quot;Tornado&quot;, &quot;Tropical Depression&quot;, &quot;Tropical Storm&quot;, &quot;Tsunami&quot;, &quot;Volcanic Ash&quot;, &quot;Waterspout&quot;, &quot;Wildfire&quot;, &quot;Winter Storm&quot;, &quot;Winter Weather&quot;)
+correct_event_types_count &lt;- length(correct_event_types)
+recorded_event_types_count &lt;- length(levels(subset$EVTYPE))</code></pre>
+<p>Note that there are 48 admitted categories, but 488 variations were actually recorded.</p>
+<p>I determined the sequence of the instructions to tidy the data based on my judgement, giving priority to what looked like the most specific, then to the most important/severe events in those cases in which mixed events were reported.</p>
+<p>Ultimately, not being an expert on this subject, I could reduce the event types only partially. In some cases, I had to invent my own categories (e.g. MUDSLIDES) in order to at least reduce the number of duplicates.</p>
+<p>In some cases I also had to introduce a false value (e.g. COASTAL FLOOKD) so that I could use a more generic rule (e.g. to set the event type“FLOOD”), then I corrected the false value.</p>
+<p>My first series of corrections dealt with: - the ? value; - waterspouts; - tornadoes; - thunderstorms; - hail; - avalanches; - blizzards; - dust storms; - ice storms; - winter storms; - tropical storms; - flash floods; - coastal floods; - lakeshore floods; - mudslides; - floods.</p>
+<pre class="r"><code>old_event_types_count &lt;- length(levels(subset$EVTYPE))
+subset$EVTYPE &lt;- plyr::revalue(subset$EVTYPE, c(&quot;?&quot;=&quot;UNKNOWN&quot;))
+levels(subset$EVTYPE)&lt;- gsub(&quot;.*waterspout.*&quot;, &quot;WATERSPOUT&quot;, levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)&lt;- gsub(&quot;.*tornado.*&quot;, &quot;TORNADO&quot;, levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)&lt;- gsub(&quot;^thunderstorm hail$&quot;, &quot;HAIL&quot;, levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)&lt;- gsub(&quot;^thunderstorm.*&quot;, &quot;THUNDERSTORM WIND&quot;, levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)&lt;- gsub(&quot;^lightning.*thunderstorm.*&quot;, &quot;THUNDERSTORM WIND&quot;, levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)&lt;- gsub(&quot;^severe.*thunderstorm.*&quot;, &quot;THUNDERSTORM WIND&quot;, levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)&lt;- gsub(&quot;^ tstm.*&quot;, &quot;THUNDERSTORM WIND&quot;, levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)&lt;- gsub(&quot;.*hail.*&quot;, &quot;HAIL&quot;, levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)&lt;- gsub(&quot;MARINE TSTM WIND&quot;, &quot;MARINE THUNDERSTORM WIND&quot;, levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)&lt;- gsub(&quot;^thun.*&quot;, &quot;THUNDERSTORM WIND&quot;, levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)&lt;- gsub(&quot;.*avalanche.*&quot;, &quot;AVALANCHE&quot;, levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)&lt;- gsub(&quot;.*blizzard.*&quot;, &quot;BLIZZARD&quot;, levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)&lt;- gsub(&quot;.*dust storm.*&quot;, &quot;DUST STORM&quot;, levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)&lt;- gsub(&quot;.*ice storm$&quot;, &quot;ICE STORM&quot;, levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)&lt;- gsub(&quot;.*winter storm.*&quot;, &quot;WINTER STORM&quot;, levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)&lt;- gsub(&quot;.*tropical storm.*&quot;, &quot;TROPICAL STORM&quot;, levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)&lt;- gsub(&quot;.*flash.*flood.*&quot;, &quot;FLASH FLOOkD&quot;, levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)&lt;- gsub(&quot;.*flood.*flash.*&quot;, &quot;FLASH FLOOkD&quot;, levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)&lt;- gsub(&quot;.*coast.*flood.*&quot;, &quot;COASTAL FLOOkD&quot;, levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)&lt;- gsub(&quot;.*cstl.*flood.*&quot;, &quot;COASTAL FLOOKD&quot;, levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)&lt;- gsub(&quot;.*lake.*flood.*&quot;, &quot;LAKESHORE FLOOkD&quot;, levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)&lt;- gsub(&quot;.*mud.*&quot;, &quot;MUDSLIDES&quot;, levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)&lt;- gsub(&quot;.*flood.*&quot;, &quot;FLOOD&quot;, levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)&lt;- gsub(&quot;FLASH FLOOKD&quot;, &quot;FLASH FLOOD&quot;, levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)&lt;- gsub(&quot;COASTAL FLOOKD&quot;, &quot;COASTAL FLOOD&quot;, levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)&lt;- gsub(&quot;LAKESHORE FLOOKD&quot;, &quot;LAKESHORE FLOOD&quot;, levels(subset$EVTYPE), ignore.case = T)
+subset &lt;- droplevels(subset)
+new_event_types_count &lt;- length(levels(subset$EVTYPE))
+diff_event_types_count &lt;- old_event_types_count - new_event_types_count
+rm(old_event_types_count)
+do_collect_garbage()</code></pre>
+<p>This operation allowed me to clean up 166 values. But I still have 274 more values than the expected 48.</p>
 </div>
 <div id="results" class="section level2">
 <h2>Results</h2>
