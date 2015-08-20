@@ -85,6 +85,7 @@ Ultimately, not being an expert on this subject, I could reduce the event types 
 In some cases I also had to introduce a false value (e.g. COASTAL FLOOKD) so that I could use a more generic rule (e.g. to set the event type"FLOOD"), then I corrected the false value.
 
 My first series of corrections dealt with:
+
 - the ? value;
 - waterspouts;
 - tornadoes;
@@ -110,8 +111,14 @@ levels(subset$EVTYPE)<- gsub(".*waterspout.*", "WATERSPOUT", levels(subset$EVTYP
 levels(subset$EVTYPE)<- gsub(".*tornado.*", "TORNADO", levels(subset$EVTYPE), ignore.case = T)
 levels(subset$EVTYPE)<- gsub("^thunderstorm hail$", "HAIL", levels(subset$EVTYPE), ignore.case = T)
 levels(subset$EVTYPE)<- gsub("^thunderstorm.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*microburst.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*mircoburst.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
 levels(subset$EVTYPE)<- gsub("^lightning.*thunderstorm.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
 levels(subset$EVTYPE)<- gsub("^severe.*thunderstorm.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("^tuderstorm.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("^tunderstorm.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("^thuderstorm.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("^tstm.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
 levels(subset$EVTYPE)<- gsub("^ tstm.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
 levels(subset$EVTYPE)<- gsub(".*hail.*", "HAIL", levels(subset$EVTYPE), ignore.case = T)
 levels(subset$EVTYPE)<- gsub("MARINE TSTM WIND", "MARINE THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
@@ -140,6 +147,60 @@ do_collect_garbage()
 ```
 
 This operation allowed me to clean up `r diff_event_types_count` values. But I still have `r new_event_types_count - correct_event_types_count` more values than the expected `r correct_event_types_count`.
+
+Following the first round, I performed a second round of cleanups:
+
+```{r, cache = TRUE}
+old_event_types_count <- length(levels(subset$EVTYPE))
+levels(subset$EVTYPE)<- gsub(".*devil.*", "DUST DEVIL", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("BLOWING DUST", "DUST STORM", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*drought.*", "DROUGHT", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".+heat", "EXCESSIVE HEAT", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("^heat.*", "HEAT", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("^(?!.*ext).*chill.*", "COLD/WINKD CHILL", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub(".*ext.*chill.*", "EXTREME COLD/WINKD CHILL", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*lake.*snow.*", "LAKE-EFFECT SNOW", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*hea.*snow.*", "HEAVY SNOW", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*sleet.*", "SLEET", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("^(?!.*marine).*high.*wind.*", "HIGH WIND", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub("^(?!.*marine).*strong.*wind.*", "STRONG WIND", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub(".*marine.*high.*wind.*", "HIGH WIND", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*marine.*strong.*wind.*", "STRONG WIND", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("^(?!thunder)(?!marine)(?!strong)(?!high).*wind.*", "WIND", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub("COLD/WINKD CHILL", "COLD/WIND CHILL", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub("EXTREME COLD/WINKD CHILL", "EXTREME COLD/WIND CHILL", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("^(?!.*lake).*snow.*", "HEAVY SNOW", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub(".*hurricane.*", "HURRICANE/TYPHOON", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*typhoon.*", "HURRICANE/TYPHOON", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*lightning.*", "LIGHTNING", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*lighting.*", "LIGHTNING", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*fire.*", "WILDFIRE", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*rain.*", "HEAVY RAIN", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*fld.*", "FLOOD", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*warm.*", "HEAT", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*coast.*storm.*", "COASTAL STORM", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*freez.*fog.*", "FREEZING FOG", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("^(?!.*freez).*fog.*", "DENSE FOG", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub(".*fre.*", "FROST/FREEZE", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*extreme.*cold.*", "EXTREME COLD/WIND CHILL", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub(".*record.*cold.*", "EXTREME COLD/WIND CHILL", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub(".*hyp.*", "EXTREME COLD/WIND CHILL", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub("EXTREME COLD/WIND CHILL", "EXTREME COLKD/WIND CHILL", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*cold.*", "COLD/WIND CHILL", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("EXTREME COLKD/WIND CHILL", "EXTREME COLD/WIND CHILL", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*rip.*curr.*", "RIP CURRENT", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*wint.*we.*", "WINTER WEATHER", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*wint.*mix.*", "WINTER WEATHER", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*surf.*", "HIGH SURF", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("^ic.*(?<!storm)$", "ICE", levels(subset$EVTYPE), ignore.case = T, perl = T)
+subset <- droplevels(subset)
+new_event_types_count <- length(levels(subset$EVTYPE))
+diff_event_types_count <- old_event_types_count - new_event_types_count
+rm(old_event_types_count)
+do_collect_garbage()
+```
+
+This second round allowed me to clean up `r diff_event_types_count` values. I still have `r new_event_types_count - correct_event_types_count` more values than the expected `r correct_event_types_count`, but the data is almost usable.
 
 ## Results
 
