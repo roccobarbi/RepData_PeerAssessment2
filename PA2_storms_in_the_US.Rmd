@@ -1,0 +1,86 @@
+---
+title: "The harmfulness of storms across the United States"
+author: "Rocco Barbini"
+date: "20 agosto 2015"
+output: html_document
+---
+
+```{r setoptions, echo = FALSE, results = "hidden"}
+suppressWarnings(library(knitr))
+opts_chunk$set(echo = TRUE, results = "html")
+options(scipen = 999, digits = 2)
+```
+
+## Synopsis
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+## Data Processing
+
+To process the data, I used the following libraries:
+```{r, results = "hidden"}
+suppressWarnings(library(dplyr))
+```
+
+The dataset is very large and includes a variety of columns that are not relevant to my analysis. In order to make the calculations lighter on my computer, I therefore:
+
+- loaded the data set;
+- created a subset with the relevant columns;
+- removed the original data set and performed an iterative garbage collection process.
+
+```{r, cache = TRUE}
+# do_collect_garbage()
+#
+# This function collects garbage efficiently to free up memory
+#
+do_collect_garbage <- function(x) {
+        Sys.sleep(1)
+        invisible(gc())
+        Sys.sleep(1)
+        invisible(gc())
+        Sys.sleep(1)
+        invisible(gc())
+        Sys.sleep(1)
+        invisible(gc())
+}
+
+storm_data <- read.csv("Data/storm_data.csv.bz2", header = T, stringsAsFactors = T)
+subset <- select(storm_data, STATE__, BGN_DATE, STATE, EVTYPE, F, MAG, FATALITIES, INJURIES, PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP)
+rm(storm_data)
+do_collect_garbage()
+```
+
+Since there are too many event types, I began to clean them up by removing those that produced no damage and are therefore irrelevant to my analysis. I then cleaned up my temporary variables and freed up some more memory.
+
+```{r, cache = TRUE}
+tmp_levels <- length(levels(subset$EVTYPE))
+evtypes_dmg <- aggregate(x = (subset[, "PROPDMG"] + subset[, "CROPDMG"]), by = list(subset[, "EVTYPE"]), FUN = "sum")
+irrelevant_evtypes <- filter(evtypes_dmg, x == 0) %>% select(Group.1)
+subset <- filter(subset, !(EVTYPE %in% unlist(irrelevant_evtypes)))
+subset <- droplevels(subset)
+erased_levels <- tmp_levels - length(levels(subset$EVTYPE))
+rm(evtypes_dmg)
+rm(irrelevant_evtypes)
+rm(tmp_levels)
+do_collect_garbage()
+```
+
+This way I was able to remove `r erased_levels` levels with no cumulated damage to either health or property.
+I then proceeded to tidy up the EVTYPE values. At first I:
+
+- renamed the unknown values in a tidier way (from "?" to "UNKNOWN");
+- aggregated with regular expressions some easier ones.
+
+```{r}
+subset$EVTYPE <- plyr::revalue(subset$EVTYPE, c("?"="UNKNOWN"))
+```
+
+## Results
+
+You can also embed plots, for example:
+
+```{r, echo=FALSE}
+plot(cars)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
