@@ -19,7 +19,8 @@ This is an R Markdown document. Markdown is a simple formatting syntax for autho
 
 To process the data, I used the following libraries:
 ```{r, results = "hidden"}
-suppressWarnings(library(dplyr))
+suppressWarnings(require(dplyr))
+suppressWarnings(require(ggplot2))
 ```
 
 The dataset is very large and includes a variety of columns that are not relevant to my analysis. In order to make the calculations lighter on my computer, I therefore:
@@ -67,6 +68,8 @@ do_collect_garbage()
 
 This way I was able to remove `r erased_levels` levels with no cumulated damage to either health or property.
 
+### Cleaning up the Event Types
+
 I then proceeded to tidy up the EVTYPE values. This required some judgement calls, as I had to adapt the "recorded" event types to the categories quoted in NOAA documents. Those categories are the following:
 
 ```{r, cache = TRUE}
@@ -109,16 +112,18 @@ old_event_types_count <- length(levels(subset$EVTYPE))
 subset$EVTYPE <- plyr::revalue(subset$EVTYPE, c("?"="UNKNOWN"))
 levels(subset$EVTYPE)<- gsub(".*waterspout.*", "WATERSPOUT", levels(subset$EVTYPE), ignore.case = T)
 levels(subset$EVTYPE)<- gsub(".*tornado.*", "TORNADO", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*gustnado.*", "TORNADO", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub(".*torndao.*", "TORNADO", levels(subset$EVTYPE), ignore.case = T, perl = T)
 levels(subset$EVTYPE)<- gsub("^thunderstorm hail$", "HAIL", levels(subset$EVTYPE), ignore.case = T)
 levels(subset$EVTYPE)<- gsub("^thunderstorm.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
 levels(subset$EVTYPE)<- gsub(".*microburst.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
 levels(subset$EVTYPE)<- gsub(".*mircoburst.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
 levels(subset$EVTYPE)<- gsub("^lightning.*thunderstorm.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
 levels(subset$EVTYPE)<- gsub("^severe.*thunderstorm.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub("^tstm.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
 levels(subset$EVTYPE)<- gsub("^tuderstorm.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
 levels(subset$EVTYPE)<- gsub("^tunderstorm.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
 levels(subset$EVTYPE)<- gsub("^thuderstorm.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
-levels(subset$EVTYPE)<- gsub("^tstm.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
 levels(subset$EVTYPE)<- gsub("^ tstm.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
 levels(subset$EVTYPE)<- gsub(".*hail.*", "HAIL", levels(subset$EVTYPE), ignore.case = T)
 levels(subset$EVTYPE)<- gsub("MARINE TSTM WIND", "MARINE THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
@@ -192,7 +197,9 @@ levels(subset$EVTYPE)<- gsub(".*rip.*curr.*", "RIP CURRENT", levels(subset$EVTYP
 levels(subset$EVTYPE)<- gsub(".*wint.*we.*", "WINTER WEATHER", levels(subset$EVTYPE), ignore.case = T)
 levels(subset$EVTYPE)<- gsub(".*wint.*mix.*", "WINTER WEATHER", levels(subset$EVTYPE), ignore.case = T)
 levels(subset$EVTYPE)<- gsub(".*surf.*", "HIGH SURF", levels(subset$EVTYPE), ignore.case = T)
-levels(subset$EVTYPE)<- gsub("^ic.*(?<!storm)$", "ICE", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub("^ice.*(?<!storm)$", "ICE", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub(".*glaze.*", "ICE", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub("black ice", "ICE", levels(subset$EVTYPE), ignore.case = T, perl = T)
 subset <- droplevels(subset)
 new_event_types_count <- length(levels(subset$EVTYPE))
 diff_event_types_count <- old_event_types_count - new_event_types_count
@@ -202,12 +209,110 @@ do_collect_garbage()
 
 This second round allowed me to clean up `r diff_event_types_count` values. I still have `r new_event_types_count - correct_event_types_count` more values than the expected `r correct_event_types_count`, but the data is almost usable.
 
-## Results
+I then performed a final round of cleanups to remove most residual values:
 
-You can also embed plots, for example:
-
-```{r, echo=FALSE}
-plot(cars)
+```{r, cache = TRUE}
+old_event_types_count <- length(levels(subset$EVTYPE))
+levels(subset$EVTYPE)<- gsub(".*land.*", "LANDSLIDE", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub("^mixed.*", "MIXED PRECIPITATION", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub("HEAVY PRECIPITATION", "HEAVY RAIN", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub("HEAVY MIX", "MIXED PRECIPITATION", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub(".*storm surge.*", "STORM SURGE", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub("^high$", "OTHER", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub(".*urban.*", "OTHER", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub(".*marine.*(?<!wind)$", "OTHER", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub(".*erosion.*", "OTHER", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub(".*other.*", "OTHER", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub(".*SWELLS.*", "HEAVY SEAS", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub(".*sea.*", "HEAVY SEAS", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub(".*county.*", "OTHER", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub(".*wet.*", "OTHER", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub(".*early frost.*", "FROST", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub("low temperature", "COLD/WIND CHILL", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub("RAPIDLY RISING WATER", "FLOOD", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub("ROGUE WAVE", "TSUNAMI", levels(subset$EVTYPE), ignore.case = T, perl = T)
+subset <- droplevels(subset)
+new_event_types_count <- length(levels(subset$EVTYPE))
+diff_event_types_count <- old_event_types_count - new_event_types_count
+rm(old_event_types_count)
+do_collect_garbage()
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+This time I cleaned up `r diff_event_types_count` values, which left me with `r new_event_types_count` event types. It is still `r new_event_types_count - correct_event_types_count` more values than the expected `r correct_event_types_count`, but it is a perfectly usable number.
+
+### Disclaimer: judgement calls
+
+Not being an expert on the subject matter of this analysis, I had to rely on many judgement calls when I tidied up the data. Such judgement calls included the decision to create some new categories, which were not present in the official NOAA documentation, and deciding what to aggregate as OTHER.
+
+The quality of this research can be greatly improved with the help of an expert in meteorology.
+
+## Results
+
+### Effects on the population health
+
+The 10 event types that produced the most cumulated fatalities are the following:
+
+```{r}
+pop_health <- select(subset, EVTYPE, FATALITIES, INJURIES)
+pop_health <- group_by(pop_health, EVTYPE) %>% summarize(fatalities = sum(FATALITIES), injuries = sum(INJURIES))
+head(arrange(pop_health, desc(fatalities)), 10)
+```
+
+The 10 event types that produced the most cumulated injuries are the following:
+
+```{r}
+head(arrange(pop_health, desc(injuries)), 10)
+```
+
+The previous tables are heavily influenced by the frequency of the events. If we average the data to see the effects of the individual events in each category, the following plot shows how the event types are distributed based on the mean injuries and fatalities of each.
+
+```{r}
+pop_health_mean <- select(subset, EVTYPE, FATALITIES, INJURIES)
+pop_health_mean <- group_by(pop_health_mean, EVTYPE) %>% summarize(fatalities = mean(FATALITIES), injuries = mean(INJURIES))
+
+inj_fat_plot_mean <- ggplot(data = pop_health_mean, aes(x = fatalities, y = injuries)) 
+inj_fat_plot_mean <- inj_fat_plot_mean + geom_point(shape = 1, size = 2, col = "red")
+inj_fat_plot_mean <- inj_fat_plot_mean + scale_x_continuous(name = "Fatalities")
+inj_fat_plot_mean <- inj_fat_plot_mean + scale_y_continuous(name = "Injuries")
+inj_fat_plot_mean <- inj_fat_plot_mean + ggtitle("Mean injuries and Fatalities across all event types")
+inj_fat_plot_mean <- inj_fat_plot_mean + theme(plot.title = element_text(lineheight=1.5, face="bold", size = 16))
+inj_fat_plot_mean
+```
+
+As we can see from the plot, most events produce on average less than 2 injuries and less than 1 fatality.
+The worst events, i.e. those that produce on average more than 2 injuries and/or 1 fatality, are the following:
+
+```{r}
+filter(pop_health_mean, injuries >= 2 | fatalities >= 1)
+```
+
+In general, the 10 event types that produced the most mean fatalities per single event are the following:
+
+```{r}
+pop_health <- select(subset, EVTYPE, FATALITIES, INJURIES)
+pop_health <- group_by(pop_health, EVTYPE) %>% summarize(fatalities = sum(FATALITIES), injuries = sum(INJURIES))
+head(arrange(pop_health, desc(fatalities)), 10)
+```
+
+The 10 event types that produced the most mean injuries per single event are the following:
+
+```{r}
+head(arrange(pop_health, desc(injuries)), 10)
+```
+
+The 10 most numerous events are the following (with averaged outcome):
+
+```{r}
+pop_health_count <- select(subset, EVTYPE, FATALITIES, INJURIES)
+pop_health_count <- cbind(pop_health_count, count = rep(1, nrow(pop_health_count)))
+pop_health_count <- group_by(pop_health_count, EVTYPE) %>% summarize(number_of_events = sum(count), fatalities = mean(FATALITIES), injuries = mean(INJURIES))
+head(arrange(pop_health_count, desc(number_of_events)), 10)
+
+```
+
+Finally, the 10 most numerous events that produced on averate at least 1 casualty or 1 fatality are the following:
+
+```{r}
+top_10_worst_pop <- filter(pop_health_count, injuries >= 1 | fatalities >= 1) %>% arrange(desc(number_of_events))
+head(top_10_worst_pop, 10)
+```

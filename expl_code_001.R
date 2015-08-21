@@ -5,6 +5,8 @@
 ######################################
 
 invisible(library(dplyr))
+invisible(library(ggplot2))
+invisible(library(scales))
 
 ###################################
 # FUNCTIONS DEFINED FOR LATER USE #
@@ -93,6 +95,8 @@ grep("tornado", levels(subset$EVTYPE), value = T, ignore.case = T)
 # I actually clean up the levels (first set)
 levels(subset$EVTYPE)<- gsub(".*waterspout.*", "WATERSPOUT", levels(subset$EVTYPE), ignore.case = T)
 levels(subset$EVTYPE)<- gsub(".*tornado.*", "TORNADO", levels(subset$EVTYPE), ignore.case = T)
+levels(subset$EVTYPE)<- gsub(".*gustnado.*", "TORNADO", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub(".*torndao.*", "TORNADO", levels(subset$EVTYPE), ignore.case = T, perl = T)
 levels(subset$EVTYPE)<- gsub("^thunderstorm hail$", "HAIL", levels(subset$EVTYPE), ignore.case = T)
 levels(subset$EVTYPE)<- gsub("^thunderstorm.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
 levels(subset$EVTYPE)<- gsub(".*microburst.*", "THUNDERSTORM WIND", levels(subset$EVTYPE), ignore.case = T)
@@ -173,7 +177,9 @@ levels(subset$EVTYPE)<- gsub(".*rip.*curr.*", "RIP CURRENT", levels(subset$EVTYP
 levels(subset$EVTYPE)<- gsub(".*wint.*we.*", "WINTER WEATHER", levels(subset$EVTYPE), ignore.case = T)
 levels(subset$EVTYPE)<- gsub(".*wint.*mix.*", "WINTER WEATHER", levels(subset$EVTYPE), ignore.case = T)
 levels(subset$EVTYPE)<- gsub(".*surf.*", "HIGH SURF", levels(subset$EVTYPE), ignore.case = T)
-levels(subset$EVTYPE)<- gsub("^ic.*(?<!storm)$", "ICE", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub("^ice.*(?<!storm)$", "ICE", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub(".*glaze.*", "ICE", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub("black ice", "ICE", levels(subset$EVTYPE), ignore.case = T, perl = T)
 
 grep("(?!.*lake)snow", levels(subset$EVTYPE), value = T, ignore.case = T, perl = T)
 
@@ -182,3 +188,58 @@ subset <- droplevels(subset)
 
 # Finally I clean up some memory
 do_collect_garbage()
+
+# Step 3 of the cleanup: residuals.
+levels(subset$EVTYPE)<- gsub(".*land.*", "LANDSLIDE", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub("^mixed.*", "MIXED PRECIPITATION", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub("HEAVY PRECIPITATION", "HEAVY RAIN", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub("HEAVY MIX", "MIXED PRECIPITATION", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub(".*storm surge.*", "STORM SURGE", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub("^high$", "OTHER", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub(".*urban.*", "OTHER", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub(".*marine.*(?<!wind)$", "OTHER", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub(".*erosion.*", "OTHER", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub(".*other.*", "OTHER", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub(".*SWELLS.*", "HEAVY SEAS", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub(".*sea.*", "HEAVY SEAS", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub(".*county.*", "OTHER", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub(".*wet.*", "OTHER", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub(".*early frost.*", "FROST", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub("low temperature", "COLD/WIND CHILL", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub("RAPIDLY RISING WATER", "FLOOD", levels(subset$EVTYPE), ignore.case = T, perl = T)
+levels(subset$EVTYPE)<- gsub("ROGUE WAVE", "TSUNAMI", levels(subset$EVTYPE), ignore.case = T, perl = T)
+
+# And I drop the unused ones.
+subset <- droplevels(subset)
+
+# Finally I clean up some memory
+do_collect_garbage()
+
+# Population health analysis
+
+pop_health <- select(subset, EVTYPE, FATALITIES, INJURIES)
+pop_health <- group_by(pop_health, EVTYPE) %>% summarize(fatalities = sum(FATALITIES), injuries = sum(INJURIES))
+
+hist(pop_health$fatalities)
+hist(pop_health$injuries)
+barplot(pop_health$fatalities)
+plot(pop_health$fatalities, pop_health$injuries)
+pop_health[pop_health$fatalities == max(pop_health$fatalities),]
+
+inj_fat_plot <- ggplot(data = pop_health, aes(x = fatalities, y = injuries)) 
+inj_fat_plot <- inj_fat_plot + geom_point(shape = 1, size = 3, col = "red")
+inj_fat_plot <- inj_fat_plot + scale_x_continuous(name = "Fatalities")
+inj_fat_plot <- inj_fat_plot + scale_y_continuous(name = "Injuries")
+inj_fat_plot <- inj_fat_plot + ggtitle("Injuries and Fatalities across all event types")
+inj_fat_plot <- inj_fat_plot + theme(plot.title = element_text(lineheight=1.5, face="bold", size = 24))
+inj_fat_plot
+
+head(arrange(pop_health, desc(fatalities)), 10)
+
+# Damage to property
+
+eco_dmg_count <- select(subset, EVTYPE, PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP)
+eco_dmg_count <- cbind(eco_dmg_count, count = rep(1, nrow(eco_dmg_count)))
+eco_dmg_count$PROPDMGEXP <- as.factor(eco_dmg_count$PROPDMGEXP)
+propdmgexp_count <- group_by(eco_dmg_count, PROPDMGEXP)
+#%>% summarize(number_of_events = sum(count), economic damage = mean(PROPDMG)))
