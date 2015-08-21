@@ -238,8 +238,22 @@ head(arrange(pop_health, desc(fatalities)), 10)
 
 # Damage to property
 
-eco_dmg_count <- select(subset, EVTYPE, PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP)
-eco_dmg_count <- cbind(eco_dmg_count, count = rep(1, nrow(eco_dmg_count)))
-eco_dmg_count$PROPDMGEXP <- as.factor(eco_dmg_count$PROPDMGEXP)
-propdmgexp_count <- group_by(eco_dmg_count, PROPDMGEXP)
-#%>% summarize(number_of_events = sum(count), economic damage = mean(PROPDMG)))
+cropdmgexp_count <- select(subset, EVTYPE, CROPDMG, CROPDMGEXP)
+cropdmgexp_count <- cbind(cropdmgexp_count, count = rep(1, nrow(crop_dmg_count)))
+cropdmgexp_count <- group_by(cropdmgexp_count, CROPDMGEXP) %>% summarize(number_of_events = sum(count), economic_damage = mean(CROPDMG))
+
+propdmgexp_count <- select(subset, EVTYPE, PROPDMG, PROPDMGEXP)
+propdmgexp_count <- cbind(propdmgexp_count, count = rep(1, nrow(prop_dmg_count)))
+propdmgexp_count <- group_by(propdmgexp_count, PROPDMGEXP) %>% summarize(number_of_events = sum(count), economic_damage = mean(PROPDMG))
+
+levels(subset$PROPDMGEXP)<- gsub("h", "H", levels(subset$PROPDMGEXP))
+levels(subset$PROPDMGEXP)<- gsub("k", "K", levels(subset$PROPDMGEXP))
+levels(subset$PROPDMGEXP)<- gsub("m", "M", levels(subset$PROPDMGEXP))
+levels(subset$PROPDMGEXP)<- gsub("B", "B", levels(subset$PROPDMGEXP))
+levels(subset$CROPDMGEXP)<- gsub("h", "H", levels(subset$CROPDMGEXP))
+levels(subset$CROPDMGEXP)<- gsub("k", "K", levels(subset$CROPDMGEXP))
+levels(subset$CROPDMGEXP)<- gsub("m", "M", levels(subset$CROPDMGEXP))
+levels(subset$CROPDMGEXP)<- gsub("B", "B", levels(subset$CROPDMGEXP))
+
+PROP_K <- sum(subset[subset$PROPDMGEXP == "K", "PROPDMG"])
+subset[subset$PROPDMGEXP == "M", "PROPDMG"] = subset[subset$PROPDMGEXP == "M", "PROPDMG"] * 1000000

@@ -46,7 +46,7 @@ do_collect_garbage <- function(x) {
 }
 
 storm_data <- read.csv("Data/storm_data.csv.bz2", header = T, stringsAsFactors = T)
-subset <- select(storm_data, STATE__, BGN_DATE, STATE, EVTYPE, F, MAG, FATALITIES, INJURIES, PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP)
+subset <- select(storm_data, EVTYPE, FATALITIES, INJURIES, PROPDMG, PROPDMGEXP, CROPDMG, CROPDMGEXP)
 rm(storm_data)
 do_collect_garbage()
 ```
@@ -240,33 +240,75 @@ do_collect_garbage()
 
 This time I cleaned up `r diff_event_types_count` values, which left me with `r new_event_types_count` event types. It is still `r new_event_types_count - correct_event_types_count` more values than the expected `r correct_event_types_count`, but it is a perfectly usable number.
 
+### Cleaning up the economic data
+
+The economic data (damage to crops and property) needs cleaning up for two reasons:
+
+- there are different columns for the numbers and the order of magnitude;
+- the order of magnitude has untidy numbers.
+
+```{r, cache = TRUE}
+levels(subset$PROPDMGEXP)
+levels(subset$CROPDMGEXP)
+```
+
+I will assume that H means hundred, K means thousand, M means million and B means billion. I will disregard all other values.
+
+```{r, cache = TRUE}
+levels(subset$PROPDMGEXP)<- gsub("h", "H", levels(subset$PROPDMGEXP))
+levels(subset$PROPDMGEXP)<- gsub("k", "K", levels(subset$PROPDMGEXP))
+levels(subset$PROPDMGEXP)<- gsub("m", "M", levels(subset$PROPDMGEXP))
+levels(subset$PROPDMGEXP)<- gsub("B", "B", levels(subset$PROPDMGEXP))
+levels(subset$CROPDMGEXP)<- gsub("h", "H", levels(subset$CROPDMGEXP))
+levels(subset$CROPDMGEXP)<- gsub("k", "K", levels(subset$CROPDMGEXP))
+levels(subset$CROPDMGEXP)<- gsub("m", "M", levels(subset$CROPDMGEXP))
+levels(subset$CROPDMGEXP)<- gsub("B", "B", levels(subset$CROPDMGEXP))
+
+subset[subset$PROPDMGEXP == "H", "PROPDMG"] = subset[subset$PROPDMGEXP == "H", "PROPDMG"] * 100
+subset[subset$PROPDMGEXP == "K", "PROPDMG"] = subset[subset$PROPDMGEXP == "K", "PROPDMG"] * 1000
+subset[subset$PROPDMGEXP == "M", "PROPDMG"] = subset[subset$PROPDMGEXP == "M", "PROPDMG"] * 1000000
+subset[subset$PROPDMGEXP == "B", "PROPDMG"] = subset[subset$PROPDMGEXP == "B", "PROPDMG"] * 1000000000
+
+subset[subset$PROPDMGEXP == "H", "CROPDMG"] = subset[subset$PROPDMGEXP == "H", "CROPDMG"] * 100
+subset[subset$PROPDMGEXP == "K", "CROPDMG"] = subset[subset$PROPDMGEXP == "K", "CROPDMG"] * 1000
+subset[subset$PROPDMGEXP == "M", "CROPDMG"] = subset[subset$PROPDMGEXP == "M", "CROPDMG"] * 1000000
+subset[subset$PROPDMGEXP == "B", "CROPDMG"] = subset[subset$PROPDMGEXP == "B", "CROPDMG"] * 1000000000
+```
+
+After this transformation, I remove some more columns to make te data tidier and lighter.
+
+```{r, cache = TRUE}
+subset <- select(subset, EVTYPE, FATALITIES, INJURIES, PROPDMG, CROPDMG)
+do_collect_garbage()
+```
+
 ### Disclaimer: judgement calls
 
 Not being an expert on the subject matter of this analysis, I had to rely on many judgement calls when I tidied up the data. Such judgement calls included the decision to create some new categories, which were not present in the official NOAA documentation, and deciding what to aggregate as OTHER.
 
 The quality of this research can be greatly improved with the help of an expert in meteorology.
 
-## Results
-
-### Effects on the population health
+### Analysis: Effects on the population health
 
 The 10 event types that produced the most cumulated fatalities are the following:
 
-```{r}
+```{r, cache = TRUE}
 pop_health <- select(subset, EVTYPE, FATALITIES, INJURIES)
 pop_health <- group_by(pop_health, EVTYPE) %>% summarize(fatalities = sum(FATALITIES), injuries = sum(INJURIES))
-head(arrange(pop_health, desc(fatalities)), 10)
+res_pop_health_topsumfatal <- head(arrange(pop_health, desc(fatalities)), 10)
+res_pop_health_topsumfatal
 ```
 
 The 10 event types that produced the most cumulated injuries are the following:
 
-```{r}
-head(arrange(pop_health, desc(injuries)), 10)
+```{r, cache = TRUE}
+res_pop_health_topsuminj <- head(arrange(pop_health, desc(injuries)), 10)
+res_pop_health_topsuminj
 ```
 
 The previous tables are heavily influenced by the frequency of the events. If we average the data to see the effects of the individual events in each category, the following plot shows how the event types are distributed based on the mean injuries and fatalities of each.
 
-```{r}
+```{r, cache = TRUE}
 pop_health_mean <- select(subset, EVTYPE, FATALITIES, INJURIES)
 pop_health_mean <- group_by(pop_health_mean, EVTYPE) %>% summarize(fatalities = mean(FATALITIES), injuries = mean(INJURIES))
 
@@ -282,27 +324,30 @@ inj_fat_plot_mean
 As we can see from the plot, most events produce on average less than 2 injuries and less than 1 fatality.
 The worst events, i.e. those that produce on average more than 2 injuries and/or 1 fatality, are the following:
 
-```{r}
-filter(pop_health_mean, injuries >= 2 | fatalities >= 1)
+```{r, cache = TRUE}
+res_pop_health_moredamage <- filter(pop_health_mean, injuries >= 2 | fatalities >= 1)
+res_pop_health_moredamage
 ```
 
 In general, the 10 event types that produced the most mean fatalities per single event are the following:
 
-```{r}
+```{r, cache = TRUE}
 pop_health <- select(subset, EVTYPE, FATALITIES, INJURIES)
-pop_health <- group_by(pop_health, EVTYPE) %>% summarize(fatalities = sum(FATALITIES), injuries = sum(INJURIES))
-head(arrange(pop_health, desc(fatalities)), 10)
+pop_health <- group_by(pop_health, EVTYPE) %>% summarize(fatalities = mean(FATALITIES), injuries = mean(INJURIES))
+res_pop_health_morefatal <- head(arrange(pop_health, desc(fatalities)), 10)
+res_pop_health_morefatal
 ```
 
 The 10 event types that produced the most mean injuries per single event are the following:
 
-```{r}
-head(arrange(pop_health, desc(injuries)), 10)
+```{r, cache = TRUE}
+res_pop_health_moreinjuries <- head(arrange(pop_health, desc(injuries)), 10)
+res_pop_health_moreinjuries
 ```
 
 The 10 most numerous events are the following (with averaged outcome):
 
-```{r}
+```{r, cache = TRUE}
 pop_health_count <- select(subset, EVTYPE, FATALITIES, INJURIES)
 pop_health_count <- cbind(pop_health_count, count = rep(1, nrow(pop_health_count)))
 pop_health_count <- group_by(pop_health_count, EVTYPE) %>% summarize(number_of_events = sum(count), fatalities = mean(FATALITIES), injuries = mean(INJURIES))
@@ -312,7 +357,107 @@ head(arrange(pop_health_count, desc(number_of_events)), 10)
 
 Finally, the 10 most numerous events that produced on averate at least 1 casualty or 1 fatality are the following:
 
-```{r}
+```{r, cache = TRUE}
 top_10_worst_pop <- filter(pop_health_count, injuries >= 1 | fatalities >= 1) %>% arrange(desc(number_of_events))
-head(top_10_worst_pop, 10)
+res_pop_health_worstpop <- head(top_10_worst_pop, 10)
+res_pop_health_worstpop
+```
+
+### Analysis: Effects on the economy
+
+The event types that produced the most cumulated economic damages:
+
+```{r}
+eco_dmg <- select(subset, EVTYPE, PROPDMG, CROPDMG)
+eco_dmg_total <- group_by(eco_dmg, EVTYPE) %>% summarize(total_economic_loss = sum(PROPDMG) + sum(CROPDMG))
+res_eco_dmg_topdmg <- head(arrange(eco_dmg_total, desc(total_economic_loss)), 10)
+res_eco_dmg_topdmg
+```
+
+The event types that produced the most cumulated damage to property are the following:
+```{r}
+eco_dmg_prop <- group_by(eco_dmg, EVTYPE) %>% summarize(total_economic_loss = sum(PROPDMG))
+res_eco_dmg_topprop <- head(arrange(eco_dmg_prop, desc(total_economic_loss)), 10)
+res_eco_dmg_topprop
+```
+
+The event types that produced the most cumulated damage to property are the following:
+```{r}
+eco_dmg_crop <- group_by(eco_dmg, EVTYPE) %>% summarize(total_economic_loss = sum(CROPDMG))
+res_eco_dmg_topcrop <- head(arrange(eco_dmg_crop, desc(total_economic_loss)), 10)
+res_eco_dmg_topcrop
+```
+
+If we consider the mean damages per single event, these are the ones that affect the words damages on property:
+
+```{r}
+eco_dmg_mean <- group_by(eco_dmg, EVTYPE) %>% summarize(property_dmg = mean(PROPDMG), crop_dmg = mean(CROPDMG))
+
+eco_dmg_propmean <- head(arrange(eco_dmg_mean, desc(property_dmg)), 10)
+eco_dmg_propmean
+```
+
+These, on the other hand, are the ones that affect the words damages on crops:
+
+```{r}
+eco_dmg_cropmean <- head(arrange(eco_dmg_mean, desc(crop_dmg)), 10)
+eco_dmg_cropmean
+```
+
+It is also interesting to see if property damage and crop damage are correlated (to make the plot readable, I removed the two outliers that emerged from the previous analyses: HURRICANE/TYPHOON and FLOOD):
+
+```{r}
+prop_crop_plot_mean <- ggplot(data = eco_dmg_mean[which(eco_dmg_mean$property_dmg < 100000000),], aes(x = property_dmg, y = crop_dmg)) 
+prop_crop_plot_mean <- prop_crop_plot_mean + geom_point(shape = 1, size = 2, col = "red")
+prop_crop_plot_mean <- prop_crop_plot_mean + scale_x_continuous(name = "Property Damage")
+prop_crop_plot_mean <- prop_crop_plot_mean + scale_y_continuous(name = "Crop Damage")
+prop_crop_plot_mean <- prop_crop_plot_mean + ggtitle("Mean property and crop damage across all event types")
+prop_crop_plot_mean <- prop_crop_plot_mean + theme(plot.title = element_text(lineheight=1.5, face="bold", size = 16))
+prop_crop_plot_mean
+cor(eco_dmg_mean$property_dmg, eco_dmg_mean$crop_dmg)
+```
+
+## Results
+
+### Across the United States, which types of events are most harmful with respect to population health?
+
+Risk is usually defined as the product of the probability and severity of an event. Paraphrasing this definition, to define the most harmful types of events it is necessary to consider:
+
+- how frequent they are;
+- how severe they are.
+
+The total number of injuries and fatalities can be considered as a very partial description of the event types considered in this analysis, as it can be so easily influenced by the sheer frequency of an event, or by individual severe events. It is still worth quoting, I think.
+
+This are the events that cumulated the highest amount of fatalities:
+```{r}
+res_pop_health_topsumfatal
+```
+
+This are the events that cumulated the highest amount of injuries:
+```{r}
+res_pop_health_topsuminj
+```
+
+The most severe events, i.e. those that produce on average more than 2 injuries and/or 1 fatality per single event, are the following:
+
+```{r}
+res_pop_health_moredamage
+```
+
+The 10 event types that produced the most mean fatalities per single event are the following:
+
+```{r}
+res_pop_health_morefatal
+```
+
+The 10 event types that produced the most mean injuries per single event are the following:
+
+```{r}
+res_pop_health_moreinjuries
+```
+
+Finally, the 10 most numerous events that produced on averate at least 1 casualty or 1 fatality are the following:
+
+```{r}
+res_pop_health_worstpop
 ```
