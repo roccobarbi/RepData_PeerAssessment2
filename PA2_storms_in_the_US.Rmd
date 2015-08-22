@@ -1,5 +1,5 @@
 ---
-title: "The harmfulness of storms across the United States"
+title: "The harmfulness of severe weather events across the United States"
 author: "Rocco Barbini"
 date: "20 agosto 2015"
 output: html_document
@@ -13,7 +13,13 @@ options(scipen = 999, digits = 2)
 
 ## Synopsis
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+This analysis investigates the effects of the severe weather events that were recorded by NOAA across the United States between 1950 and 2011.
+
+The data was analysed without considering the year or the State where the events took place. Moreover, since the data was nos tidy, a cleanup of the dataset was performed before the analysis. These factors should be taken into account and caution should be used when using the results as the basis for policy decisions.
+
+The results are presented at the end of this document, separating the economic effects from those on the population health. The data processing section, which is the longer part of this report, will be of interest to the data analysts who may want to reproduce this analysis and to check if it was performed correctly.
+
+The data set was downloaded from https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2 on August 20th, 2015.
 
 ## Data Processing
 
@@ -28,6 +34,9 @@ The dataset is very large and includes a variety of columns that are not relevan
 - loaded the data set;
 - created a subset with the relevant columns;
 - removed the original data set and performed an iterative garbage collection process.
+
+I set the garbage collection function to perform three garbace collection operations spaced by one second. After some testing, i noticed that this almost always produced the best results.
+
 
 ```{r, cache = TRUE}
 # do_collect_garbage()
@@ -252,7 +261,7 @@ levels(subset$PROPDMGEXP)
 levels(subset$CROPDMGEXP)
 ```
 
-I will assume that H means hundred, K means thousand, M means million and B means billion. I will disregard all other values.
+I assumed that H means hundred, K means thousand, M means million and B means billion. I disregarded all other values.
 
 ```{r, cache = TRUE}
 levels(subset$PROPDMGEXP)<- gsub("h", "H", levels(subset$PROPDMGEXP))
@@ -275,7 +284,7 @@ subset[subset$PROPDMGEXP == "M", "CROPDMG"] = subset[subset$PROPDMGEXP == "M", "
 subset[subset$PROPDMGEXP == "B", "CROPDMG"] = subset[subset$PROPDMGEXP == "B", "CROPDMG"] * 1000000000
 ```
 
-After this transformation, I remove some more columns to make te data tidier and lighter.
+After this transformation, I removed some more columns to make te data lighter.
 
 ```{r, cache = TRUE}
 subset <- select(subset, EVTYPE, FATALITIES, INJURIES, PROPDMG, CROPDMG)
@@ -329,6 +338,13 @@ res_pop_health_moredamage <- filter(pop_health_mean, injuries >= 2 | fatalities 
 res_pop_health_moredamage
 ```
 
+The absolute worst events, i.e. those that produce on average more than 2 injuries and 1 fatality, are the following:
+
+```{r, cache = TRUE}
+res_pop_health_mostdamage <- filter(pop_health_mean, injuries >= 2 & fatalities >= 1)
+res_pop_health_mostdamage
+```
+
 In general, the 10 event types that produced the most mean fatalities per single event are the following:
 
 ```{r, cache = TRUE}
@@ -365,7 +381,7 @@ res_pop_health_worstpop
 
 ### Analysis: Effects on the economy
 
-The event types that produced the most cumulated economic damages:
+I can find the event types that produced the most cumulated economic damages by aggregating per event type the sum of the damage to property and crops:
 
 ```{r}
 eco_dmg <- select(subset, EVTYPE, PROPDMG, CROPDMG)
@@ -388,20 +404,20 @@ res_eco_dmg_topcrop <- head(arrange(eco_dmg_crop, desc(total_economic_loss)), 10
 res_eco_dmg_topcrop
 ```
 
-If we consider the mean damages per single event, these are the ones that affect the words damages on property:
+If we consider the mean damages per single event, these are the ones that produced the worst damages on property:
 
 ```{r}
 eco_dmg_mean <- group_by(eco_dmg, EVTYPE) %>% summarize(property_dmg = mean(PROPDMG), crop_dmg = mean(CROPDMG))
 
-eco_dmg_propmean <- head(arrange(eco_dmg_mean, desc(property_dmg)), 10)
-eco_dmg_propmean
+res_eco_moreprop <- head(arrange(eco_dmg_mean, desc(property_dmg)), 10)
+res_eco_moreprop
 ```
 
-These, on the other hand, are the ones that affect the words damages on crops:
+These, on the other hand, are the ones that produced the worst damages on crops:
 
 ```{r}
-eco_dmg_cropmean <- head(arrange(eco_dmg_mean, desc(crop_dmg)), 10)
-eco_dmg_cropmean
+res_eco_morecrop <- head(arrange(eco_dmg_mean, desc(crop_dmg)), 10)
+res_eco_morecrop
 ```
 
 It is also interesting to see if property damage and crop damage are correlated (to make the plot readable, I removed the two outliers that emerged from the previous analyses: HURRICANE/TYPHOON and FLOOD):
@@ -414,34 +430,64 @@ prop_crop_plot_mean <- prop_crop_plot_mean + scale_y_continuous(name = "Crop Dam
 prop_crop_plot_mean <- prop_crop_plot_mean + ggtitle("Mean property and crop damage across all event types")
 prop_crop_plot_mean <- prop_crop_plot_mean + theme(plot.title = element_text(lineheight=1.5, face="bold", size = 16))
 prop_crop_plot_mean
-cor(eco_dmg_mean$property_dmg, eco_dmg_mean$crop_dmg)
+```
+
+Compared to the injuries vs. fatalities plot, most event types produce significant damage either to property or to crops, with only a handful procuring significant damages to both. 
+
+The worst events, i.e. those producing on average at least than 1 million dollars of damage to either crops or property per single event, are the following:
+
+```{r, cache = TRUE}
+res_eco_moredamage <- filter(eco_dmg_mean, property_dmg >= 1000000 | crop_dmg >= 1000000)
+res_eco_moredamage
+```
+
+The absolute worst, those producing on average at least than 1 million dollars of damage to both crops and property per single event, are the following:
+
+```{r, cache = TRUE}
+res_eco_mostdamage <- filter(eco_dmg_mean, property_dmg >= 1000000 & crop_dmg >= 1000000)
+res_eco_mostdamage
+```
+
+The 10 most numerous events are the following (with averaged outcome):
+
+```{r, cache = TRUE}
+prop_crop_count <- select(subset, EVTYPE, PROPDMG, CROPDMG)
+prop_crop_count <- cbind(prop_crop_count, count = rep(1, nrow(prop_crop_count)))
+prop_crop_count <- group_by(prop_crop_count, EVTYPE) %>% summarize(number_of_events = sum(count), property_dmg = mean(PROPDMG), crop_dmg = mean(CROPDMG))
+head(arrange(prop_crop_count, desc(number_of_events)), 10)
+```
+
+Finally, the most numerous events that produced on averate at least 1 casualty or 1 fatality are the following:
+
+```{r, cache = TRUE}
+res_eco_worsteco <- filter(prop_crop_count, property_dmg >= 1000000 | crop_dmg >= 1000000) %>% arrange(desc(number_of_events))
+res_eco_worsteco <- head(res_eco_worsteco, 10)
+res_eco_worsteco
 ```
 
 ## Results
-
-### Across the United States, which types of events are most harmful with respect to population health?
 
 Risk is usually defined as the product of the probability and severity of an event. Paraphrasing this definition, to define the most harmful types of events it is necessary to consider:
 
 - how frequent they are;
 - how severe they are.
 
-The total number of injuries and fatalities can be considered as a very partial description of the event types considered in this analysis, as it can be so easily influenced by the sheer frequency of an event, or by individual severe events. It is still worth quoting, I think.
+In this analysis, we define **severity** as *the magnitude of the mean effects per single even*. We also define **frequency** as *the number of times that an event was recorded*.
 
-This are the events that cumulated the highest amount of fatalities:
-```{r}
-res_pop_health_topsumfatal
-```
+An event that is very frequent, but of little consequence, does not constitute a real risk. On the other hand, a severe event that almost never happens is less of a risk than a less severe events that happened many times.
 
-This are the events that cumulated the highest amount of injuries:
-```{r}
-res_pop_health_topsuminj
-```
+### Across the United States, which types of events are most harmful with respect to population health?
 
-The most severe events, i.e. those that produce on average more than 2 injuries and/or 1 fatality per single event, are the following:
+With respect to population health, the most severe events, i.e. those that produce on average more than 2 injuries and/or 1 fatality per single event, are the following:
 
 ```{r}
 res_pop_health_moredamage
+```
+
+The absolute worst events, i.e. those that produce on average more than 2 injuries and 1 fatality, are the following:
+
+```{r, cache = TRUE}
+res_pop_health_mostdamage
 ```
 
 The 10 event types that produced the most mean fatalities per single event are the following:
@@ -456,8 +502,40 @@ The 10 event types that produced the most mean injuries per single event are the
 res_pop_health_moreinjuries
 ```
 
-Finally, the 10 most numerous events that produced on averate at least 1 casualty or 1 fatality are the following:
+Finally, the most numerous events that produced on averate at least 1 casualty or 1 fatality are the following:
 
 ```{r}
 res_pop_health_worstpop
+```
+
+### AAcross the United States, which types of events have the greatest economic consequences?
+
+With respect to the economy, the most severe events, i.e. those that produce on average more than 1 million dollars of property and/or crop damage per single event, are the following:
+
+```{r}
+res_eco_moredamage
+```
+
+The absolute worst events, i.e. those that produce on average more than 1 million dollars of property and crop damage, are the following:
+
+```{r, cache = TRUE}
+res_eco_mostdamage
+```
+
+The 10 event types that produced the most mean property damages per single event are the following:
+
+```{r}
+res_eco_moreprop
+```
+
+The 10 event types that produced the most mean crop damages per single event are the following:
+
+```{r}
+res_eco_morecrop
+```
+
+Finally, the most numerous events that produced on averate at least 1 casualty or 1 fatality are the following:
+
+```{r}
+res_eco_worsteco
 ```
