@@ -1,5 +1,5 @@
 ---
-title: "The harmfulness of severe weather events across the United States"
+title: "The effects of severe weather events across the United States"
 author: "Rocco Barbini"
 date: "20 agosto 2015"
 output: html_document
@@ -508,7 +508,7 @@ Finally, the most numerous events that produced on averate at least 1 casualty o
 res_pop_health_worstpop
 ```
 
-### AAcross the United States, which types of events have the greatest economic consequences?
+### Across the United States, which types of events have the greatest economic consequences?
 
 With respect to the economy, the most severe events, i.e. those that produce on average more than 1 million dollars of property and/or crop damage per single event, are the following:
 
